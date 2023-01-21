@@ -12,7 +12,7 @@ from kivy.clock import Clock
 class ChessApp(App):
     def build(self):
         gameScreen = Chess.GameScreen(self.chessConfig)
-        gameScreen.players = [Chess.Player('USER', 0),Chess.Player('MW_AI', 1)]
+        # gameScreen.players = [Chess.Player('USER', 0),Chess.Player('RAND_AI', 1)]
         # Clock.schedule_interval(gameScreen.nextMove, 0.1)
         return gameScreen
 

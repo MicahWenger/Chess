@@ -5,18 +5,22 @@ import Chess
 
 class RAND_AI:
     def __init__(self, team):
-        pass
+        self.team = team
 
     def getMove(self, board):
-        #print(board)
+        # print("time to make a choice")
+        # time.sleep(1)
+        myPieces = []
+        for r in board:
+            for c in r:
+                if type(c) in (Chess.Piece, Chess.King) and c.team == self.team:
+                    myPieces.append(c)
         while 1:
-            x1 = random.randint(0,7)
-            y1 = random.randint(0,7)
-            while type(board[x1][y1]) is not Chess.Piece:
-                x1 = random.randint(0,7)
-                y1 = random.randint(0,7)
-            moves = board[x1][y1].getValidMoves(board)
+            piece = random.choice(myPieces)
+            moves = piece.getValidMoves(board)
             if len(moves) > 0:
-                #print('calculating random move')
-                # time.sleep(1)
-                return [(x1,y1), moves[random.randint(0,len(moves) - 1)]]
+                return [(piece.x, piece.y), random.choice(moves)]
+            # else:
+            #     print(str(piece) + " has no valid moves")
+                # myPieces.remove(piece)
+                # Chess.printBoard(board)

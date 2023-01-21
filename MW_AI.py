@@ -6,34 +6,34 @@ class MW_AI:
 
 
     def getBestOffensive(self, team, board):
+        # figure out which pieces I have
         myPieces = []
-        myMoves = []
-        bestMove = bestMovePiece = bestMoveScore = 0
-
         for r in board:
             for c in r:
-                if type(c) is Chess.Piece and c.team == team:
+                if type(c) in (Chess.Piece, Chess.King) and c.team == team:
                     myPieces.append(c)
-        for p in myPieces:
-            moves = p.getValidMoves(board)
-            if len(moves) > 0:
-                for m in moves:
-                    myMoves.append((p,m))
 
+        # gather all possible moves I can make
+        # myMoves = [[(piece, move) for move in piece.getValidMoves(board)] for piece in myPieces]
+        myMoves = []
+        for piece in myPieces:
+            [myMoves.append((piece, move)) for move in piece.getValidMoves(board)]
+
+        # print(myMoves)
         # picking a default move
         bestMove = myMoves[0][1]
         bestMovePiece = myMoves[0][0]
         bestMoveScore = 0
 
         # finding the best move for offense
-        for moveSet in myMoves:
+        for moveSet in myMoves:  # a moveset is (piece, move)
             currPiece = moveSet[0]
-            m = moveSet[1]
-            enemyPiece = board[m[0]][m[1]]
-            if type(enemyPiece) is Chess.Piece:
-                if enemyPiece.getValue() >= bestMoveScore:
-                    print("found new best move for "+str(currPiece))
-                    bestMove = m
+            currMove = moveSet[1]
+            enemyPiece = board[currMove[0]][currMove[1]]
+            if type(enemyPiece) in (Chess.Piece, Chess.King):
+                if enemyPiece.getValue() >= bestMoveScore and enemyPiece.getValue() >= currPiece.getValue():
+                    print("found new best move for " + str(currPiece))
+                    bestMove = currMove
                     bestMovePiece = currPiece
                     bestMoveScore = enemyPiece.getValue()
 
