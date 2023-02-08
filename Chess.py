@@ -7,7 +7,7 @@ from kivy.uix.widget import Widget
 from kivy.uix.image import Image
 from kivy.clock import Clock
 
-from kivy.graphics import Color, Rectangle
+from kivy.graphics import Color, Rectangle, Line
 
 import math
 import time
@@ -71,8 +71,11 @@ class Player:
         if self.type != 'USER':
             return self.AI.getMove(board)
 
-# PLAYERS = [Player('USER', 0), Player('RAND_AI', 1)]
-PLAYERS = [Player('USER', 0), Player('MW_AI', 1)]
+# PLAYERS = [Player('RAND_AI', 0), Player('RAND_AI', 1)]
+# PLAYERS = [Player('MW_AI', 0), Player('RAND_AI', 1)]
+PLAYERS = [Player('USER', 0), Player('RAND_AI', 1)]
+# PLAYERS = [Player('USER', 0), Player('MW_AI', 1)]
+# PLAYERS = [Player('USER', 0), Player('USER', 1)]
 
 class Square:
     def __init__(self, loc, length, color):
@@ -85,17 +88,17 @@ class Square:
     def draw(self, canvas):
         color = COLOR_LIST[self.color]
         alpha = 1
-        if self.highlighted:
-            # color = COLOR_LIST['RED']
-            alpha = 0.2
-        elif self.selected:
-            # color = COLOR_LIST['GREEN']
-            alpha = 0.7
-        # canvas.add(COLOR_LIST[color])
-        # canvas.add( Rectangle(pos=self.pos, size=self.size) )
+        if self.highlighted or self.selected:
+            alpha = 0.8
         with canvas:
             Color(color.r, color.g, color.b, alpha)
             Rectangle(pos=self.pos, size=self.size)
+        if self.highlighted: # red dots
+            with canvas.after:
+                red = COLOR_LIST['RED']
+                halfLen = self.size[0] / 2
+                Color(red.r,red.g,red.b)
+                Line(points=[self.pos[0]+halfLen, self.pos[1]+halfLen, self.pos[0]+halfLen+.1, self.pos[1]+halfLen+.1], width=halfLen/5)
 
     def __repr__(self):
         return "square at x=" + str(self.loc[0]) + ", y=" + str(self.loc[1]) + ", color: " + self.color
@@ -153,6 +156,7 @@ class GameScreen(Screen):
     def draw(self):
         # draw squares
         self.canvas.clear()
+        self.canvas.after.clear()
         with self.canvas:
             color = COLOR_LIST['GRAY']
             screenSize = (self.chessConfig.dimX, self.chessConfig.dimY)
@@ -179,10 +183,10 @@ class GameScreen(Screen):
         coords = getLocFromCoords(int(self.chessConfig.dimX / self.chessConfig.rows), pos)
         # print("click! " + str(coords))
         self.unHighlightAllSquares()
-        if self.turn == 0:
+        if self.players[self.turn].type == "USER":
+        # if self.turn == 0:
             if self.selectedPiece:
                 self.arr[self.selectedPiece.x][self.selectedPiece.y].selected = False
-                # if coords in self.selectedPiece.getValidMoves(self.copyBoard()):
                 if coords in self.selectedPiece.getValidMoves(self.pieces):
                     self.movePiece(coords)
                     self.turn = 1 - self.turn
@@ -234,9 +238,18 @@ class GameScreen(Screen):
                     self.pieces[p[0]][p[1]] = Piece(k, 1, p[0], p[1], squareLength)
 
     def movePiece(self, coords):
+        # special case for countering 'on pasant'
+        if type(self.selectedPiece) is Piece and self.selectedPiece.type == "PAWN" and self.selectedPiece.x != coords[0]:
+            if self.pieces[coords[0]][coords[1]] == 0:
+                self.pieces[coords[0]][self.selectedPiece.y] = 0 # kill piece that on pasanted
+
         self.pieces[coords[0]][coords[1]] = self.selectedPiece
         self.pieces[self.selectedPiece.x][self.selectedPiece.y] = 0
         self.selectedPiece.move(coords[0],coords[1])
+        for row in self.pieces:
+            for piece in row:
+                if type(piece) is Piece and piece.type == "PAWN" and piece != self.selectedPiece and piece.movedTwoSpaces:
+                    piece.movedTwoSpaces = False
         self.selectedPiece = 0
 
     def checkWin(self):
@@ -298,9 +311,9 @@ class Piece:
 
     def queen(self): # change pawn to queen
         self.type = 'QUEEN'
-        path = 'images/' + ('black' if self.team == 1 else 'white')+'/'+ self.type.lower()+'.png'
+        self.path = 'images/' + ('black' if self.team == 1 else 'white')+'/'+ self.type.lower()+'.png'
         loc = getCoordsFromLoc(self.length,(self.x,self.y))
-        self.rect = Rectangle(source=path, pos=loc, size=(self.length,self.length))
+        self.rect = Rectangle(source=self.path, pos=loc, size=(self.length,self.length))
 
     def draw(self, canvas):
         c = COLOR_LIST['WHITE']
@@ -312,32 +325,28 @@ class Piece:
     # def getValidMoves(self, board, onlyValid=True, deep=True):
         moves = []
         if self.type == 'PAWN':
-            facingDir = (1-self.team)*2 - 1
-            #print('pawn y '+str(self.y))
+            facingDir = (1-self.team) * 2 - 1
             newY = self.y + facingDir
-            if newY in range(len(board)) and type(board[self.x][newY]) not in (Piece, King):
-            # if self.y+facingDir >= 0 and self.y+facingDir < len(board) and type(board[self.x][self.y+facingDir]) is not Piece:
-                moves.append((self.x, newY))
-                # moving 2 spaces at start
-                if self.y+(2*facingDir) >= 0 and self.y+(2*facingDir) < len(board) and type(board[self.x][self.y+(2*facingDir)]) not in (Piece, King):
-                    if self.team == 0:
-                        if self.y == 1:
-                            moves.append((self.x, self.y + (2*facingDir)))
-                    elif self.y == 6:
-                            moves.append((self.x, self.y + (2*facingDir)))
-            # diagonal jumping
+            newY2 = self.y + (2*facingDir)
             if newY in range(len(board)):
-            # if self.y+facingDir >= 0 and self.y+facingDir < len(board):
-                if self.x < len(board) - 1:
-                    p = board[self.x + 1][newY]
-                    # if type(p) in (Piece, King) and p.team != self.team or not onlyValid:
-                    if type(p) in (Piece, King) and p.team != self.team:
-                        moves.append((self.x + 1, newY))
-                if self.x > 0:
-                    p = board[self.x - 1][newY]
-                    # if type(p) in (Piece, King) and p.team != self.team or not onlyValid:
-                    if type(p) in (Piece, King) and p.team != self.team:
-                        moves.append((self.x - 1, newY))
+                # diagonal jumping
+                for newX in [self.x + 1, self.x - 1]:
+                    if newX in range(len(board)):
+                        p = board[newX][newY]
+                        if type(p) in (Piece, King) and p.team != self.team:
+                            moves.append((newX, newY))
+                        # special case for on pasant
+                        pasantPiece = board[newX][self.y]
+                        if type(pasantPiece) is Piece and pasantPiece.team != self.team and pasantPiece.movedTwoSpaces:
+                            moves.append((newX, newY))
+
+                # move forward one space
+                if type(board[self.x][newY]) not in (Piece, King):
+                    moves.append((self.x, newY))
+                    # moving 2 spaces at start
+                    if newY2 in range(len(board)) and type(board[self.x][newY2]) not in (Piece, King):
+                        if (self.team == 0 and self.y == 1) or (self.team == 1 and self.y == 6):
+                            moves.append((self.x, newY2))
         elif self.type == "ROOK" or self.type == "QUEEN":
             #move horiz right
             for x in range(self.x+1,len(board)):
